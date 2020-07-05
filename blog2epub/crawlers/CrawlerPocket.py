@@ -2,22 +2,58 @@
 # -*- coding : utf-8 -*-
 
 import re
-from blog2epub.crawlers.Crawler import Crawler, Article
+import json
 from pocket import Pocket, PocketException
+from datetime import datetime
+
+from blog2epub.crawlers.Crawler import Dirs, Downloader
+from blog2epub.crawlers.Crawler import Crawler, Article
+from blog2epub.Book import Book
 
 class CrawlerPocket(Crawler):
-    """
-    https://getpocket.com
-    
-	87372-bc12512b803ed33d9c1c56e0
-    """
 
-    def __init__(self, url, include_images=True, images_height=800, images_width=600, images_quality=40, start=None,
-                 end=None, limit=None, skip=False, force_download=False, file_name=None, destination_folder='./',
-                 cache_folder=None, language=None, interface=None):
-        Crawler.__init__(url, include_images, images_height, images_width, images_quality, start, end, limit, skip, force_download,
-        file_name, destination_folder, cache_folder, language, interface)
-        self.pocket = Pocket(consumer_key='87372-bc12512b803ed33d9c1c56e0', access_token='<Your Access Token>')
+    POCKET_CONSUMER_KEY = '88465-089d74bb29edd7f9f1f5a210'
+    POCKET_REDIRECT_URL = 'pocketapp88465:authorizationFinished'
 
-    def _crawl():
-        print(p.retrieve(offset=0, count=10))
+    def __init__(self, pocket_token, pocket_username, **kwargs):
+        super(CrawlerPocket, self).__init__(**kwargs)
+        self.title = '{} pocket archive'.format(pocket_username)
+        self.url = 'https://getpocket.com'
+        self.file_name = '{}_pocket_archive'.format(pocket_username)
+        self.dirs = Dirs(self.cache_folder, self.file_name)
+        self.pocket_token = pocket_token
+        self.pocket_username = pocket_username
+        self.pocket = Pocket(self.POCKET_CONSUMER_KEY, self.pocket_token)
+
+    def _crawl(self):
+        p_data = self.pocket.get(state='all', count=10, detailType='complete', contentType='article')
+        for art_id in p_data[0]['list']:
+            art_in_list = p_data[0]['list'][art_id]
+            if art_in_list['is_article']:
+                self.article_counter += 1
+                if art_in_list['resolved_title'] == '':
+                    art_in_list['resolved_title'] = art_in_list['given_title']
+                art = Article(art_in_list['resolved_url'], art_in_list['resolved_title'], self)
+                art.date = datetime.fromtimestamp(int(art_in_list['time_added']))
+                if art_in_list['has_image'] and 'top_image_url' in art_in_list:
+                    art.downloader.download_image(art_in_list['top_image_url'])
+                    art.images.append(art_in_list['top_image_url'])
+                self.interface.print(str(len(self.articles) + 1) + '. ' + art.title)
+                art.html = art.downloader.get_content(art.url)
+                if self.language is None:
+                    self._set_blog_language(art.html)
+                art.get_tree()
+                art.content = art_in_list['excerpt']
+                art.comments = ''
+                if self.start:
+                    self.end = art.date
+                else:
+                    self.start = art.date
+                self.articles.append(art)
+        
+    def save(self):
+        self._crawl()
+        self.book = Book(self)
+        self.book.description = ''
+        self.book.save()
+        

@@ -33,12 +33,11 @@ class Crawler(object):
 
     def __init__(self, url, include_images=True, images_height=800, images_width=600, images_quality=40, start=None,
                  end=None, limit=None, skip=False, force_download=False, file_name=None, destination_folder='./',
-                 cache_folder=None, language=None, interface=None):
-
-        self.url = self._prepare_url(url)
-        self.url_to_crawl = self._prepare_url_to_crawl(self.url)
-        self.port = self._prepare_port(self.url_to_crawl)
-        self.file_name = self._prepare_file_name(file_name, self.url)
+                 cache_folder=None, language=None, interface=None, **kwargs):
+        self.url = Crawler.prepare_url(url)
+        self.url_to_crawl = Crawler.prepare_url_to_crawl(self.url)
+        self.port = Crawler.prepare_port(self.url_to_crawl)
+        self.file_name = Crawler.prepare_file_name(file_name, self.url)
         self.destination_folder = destination_folder
         self.cache_folder = cache_folder
         if cache_folder is None:
@@ -52,7 +51,7 @@ class Crawler(object):
         self.limit = limit
         self.skip = skip
         self.force_download = force_download
-        self.interface = self._get_the_interface(interface)
+        self.interface = Crawler.get_the_interface(interface)
         self.dirs = Dirs(self.cache_folder, self.url.replace('/', '_'))
         self.book = None
         self.title = None
@@ -65,25 +64,30 @@ class Crawler(object):
         self.downloader = Downloader(self)
         self.tags = {}
 
-    def _prepare_url(self, url):
+    @staticmethod
+    def prepare_url(url):
         return url.replace('http:', '').replace('https:', '').strip('/')
 
-    def _prepare_file_name(self, file_name, url):
+    @staticmethod
+    def prepare_file_name(file_name, url):
         if file_name:
             return file_name
         return url.replace('/', '_')
 
-    def _prepare_url_to_crawl(self, url):
+    @staticmethod
+    def prepare_url_to_crawl(url):
         r = request.urlopen('http://' + url)
         return r.geturl()
 
-    def _prepare_port(self, url):
+    @staticmethod
+    def prepare_port(url):
         if url.startswith("https://"):
             return 443
         else:
             return 80
 
-    def _get_the_interface(self, interface):
+    @staticmethod
+    def get_the_interface(interface):
         if interface:
             return interface
         else:
@@ -216,8 +220,6 @@ class Crawler(object):
     def _prepare_content(self, content):
         return content
 
-
-
     def _crawl(self):
         while self.url_to_crawl:
             content = self.downloader.get_content(self.url_to_crawl)
@@ -302,12 +304,13 @@ class Downloader(object):
         return os.path.join(self.dirs.html, self.get_urlhash(url) + '.html')
 
     def file_download(self, url, filepath):
+        print(url)
         self.dirs._prepare_directories()                
         response = self.session.get(url, cookies=self.cookies, headers=self.headers)        
         self.cookies = response.cookies
         data = response.content
         try:
-            contents = data.decode('utf-8')
+            contents = data.decode('utf-8', errors='replace')
         except Exception as e:
             contents = data
             self.interface.print(e)
@@ -352,6 +355,8 @@ class Downloader(object):
         img_type = os.path.splitext(img)[1].lower()
         original_fn = os.path.join(self.dirs.originals, img_hash + "." + img_type)
         resized_fn = os.path.join(self.dirs.images, img_hash + ".jpg")
+        print(original_fn)
+        print(resized_fn)
         if not os.path.isfile(resized_fn) or self.force_download:
             self.image_download(img, original_fn)
         if os.path.isfile(original_fn):

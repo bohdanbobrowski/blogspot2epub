@@ -207,6 +207,7 @@ class Book(object):
         if len(self.description) > 0:
             self.book.add_metadata('DC', 'description', "\n".join(self.description))
         self._include_images()
+        print(self)
         self.file_full_path = os.path.join(self.destination_folder, self.file_name)
         epub.write_epub(self.file_full_path, self.book, {})
         self._add_cover()
