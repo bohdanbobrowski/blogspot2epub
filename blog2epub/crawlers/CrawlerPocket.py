@@ -26,18 +26,18 @@ class CrawlerPocket(Crawler):
         self.pocket = Pocket(self.POCKET_CONSUMER_KEY, self.pocket_token)
 
     def _crawl(self):
-        p_data = self.pocket.get(state='all', count=10, detailType='complete', contentType='article')
+        p_data = self.pocket.get(state='all', count=int(self.skip + self.limit), detailType='complete', contentType='article')
         for art_id in p_data[0]['list']:
             art_in_list = p_data[0]['list'][art_id]
-            if art_in_list['is_article']:
-                self.article_counter += 1
+            self.article_counter += 1
+            if not self.skip or self.article_counter > self.skip:
                 if art_in_list['resolved_title'] == '':
                     art_in_list['resolved_title'] = art_in_list['given_title']
                 art = Article(art_in_list['resolved_url'], art_in_list['resolved_title'], self)
                 art.date = datetime.fromtimestamp(int(art_in_list['time_added']))
                 if art_in_list['has_image'] and 'top_image_url' in art_in_list:
-                    art.downloader.download_image(art_in_list['top_image_url'])
-                    art.images.append(art_in_list['top_image_url'])
+                    img = art.downloader.download_image(art_in_list['top_image_url'])
+                    art.images.append(img)
                 self.interface.print(str(len(self.articles) + 1) + '. ' + art.title)
                 art.html = art.downloader.get_content(art.url)
                 if self.language is None:
@@ -50,6 +50,7 @@ class CrawlerPocket(Crawler):
                 else:
                     self.start = art.date
                 self.articles.append(art)
+                self.images = self.images + art.images
         
     def save(self):
         self._crawl()

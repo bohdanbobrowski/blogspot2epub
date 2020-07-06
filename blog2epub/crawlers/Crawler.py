@@ -304,7 +304,6 @@ class Downloader(object):
         return os.path.join(self.dirs.html, self.get_urlhash(url) + '.html')
 
     def file_download(self, url, filepath):
-        print(url)
         self.dirs._prepare_directories()                
         response = self.session.get(url, cookies=self.cookies, headers=self.headers)        
         self.cookies = response.cookies
@@ -355,8 +354,6 @@ class Downloader(object):
         img_type = os.path.splitext(img)[1].lower()
         original_fn = os.path.join(self.dirs.originals, img_hash + "." + img_type)
         resized_fn = os.path.join(self.dirs.images, img_hash + ".jpg")
-        print(original_fn)
-        print(resized_fn)
         if not os.path.isfile(resized_fn) or self.force_download:
             self.image_download(img, original_fn)
         if os.path.isfile(original_fn):
